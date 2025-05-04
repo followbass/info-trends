@@ -3,43 +3,40 @@ from pytrends.request import TrendReq
 import pandas as pd
 
 app = Flask(__name__)
-
-# إعداد pytrends لدعم العربية
-pytrends = TrendReq(hl='ar-EG', tz=360)
+pytrends = TrendReq(hl='ar', tz=360)
 
 @app.route('/')
-def home():
-    return 'API جاهز. استخدم /trends?query=كلمتك'
+def index():
+    return "API شغالة. استخدم /trends?query=كلمة"
 
 @app.route('/trends')
-def get_trends():
+def trends():
+    query = request.args.get('query', '').strip()
+
+    if not query:
+        return jsonify({'error': 'يرجى إدخال كلمة مفتاحية'}), 400
+
     try:
-        query = request.args.get('query', '').encode('utf-8').decode('utf-8').strip()
-        print("Query Received:", query)
-
-        if not query:
-            return jsonify({'error': 'يرجى إدخال كلمة مفتاحية'}), 400
-
-        print("Step 1: Building payload for", query)
+        # تجهيز البيانات
         pytrends.build_payload([query], cat=0, timeframe='now 7-d', geo='', gprop='')
-
-        print("Step 2: Getting related queries")
         related = pytrends.related_queries()
-        print("Step 3: Raw related data:", related)
 
-        # تحقق من أن البيانات موجودة وسليمة
-        if not related or query not in related or related[query]['top'] is None:
+        # التحقق من وجود نتائج
+        if not related or query not in related:
+            return jsonify({'keywords': [], 'message': 'لا توجد نتائج.'})
+
+        result = related[query]
+
+        # محاولة جلب "top" ثم "rising"
+        df = result.get('top') or result.get('rising')
+
+        if df is None or df.empty:
             return jsonify({'keywords': [], 'message': 'لا توجد نتائج حالياً.'})
 
-        related_queries = related[query]['top']
-        print("Step 4: Extracted top:", related_queries)
-
-        # تحويل الكلمات المفتاحية إلى قائمة
-        keywords = related_queries['query'].tolist()
+        keywords = df['query'].tolist()
         return jsonify({'keywords': keywords})
 
     except Exception as e:
-        print("Error occurred:", str(e))
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
