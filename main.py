@@ -1,36 +1,37 @@
 from flask import Flask, request, jsonify
 from pytrends.request import TrendReq
 import pandas as pd
-import os
 
 app = Flask(__name__)
-pytrends = TrendReq(hl='en-US', tz=360)
+
+# إعداد pytrends لدعم العربية
+pytrends = TrendReq(hl='ar-EG', tz=360)
 
 @app.route('/')
 def home():
-    return jsonify({
-        "message": "أهلاً بك في خدمة Google Trends API المصغرة!",
-        "طريقة الاستخدام": "/trends?query=كلمة_البحث"
-    })
+    return 'API جاهز. استخدم /trends?query=كلمتك'
 
 @app.route('/trends')
 def get_trends():
-    query = request.args.get('query')
-    if not query:
-        return jsonify({'error': 'يرجى تحديد الكلمة باستخدام ?query=keyword'}), 400
-
     try:
+        query = request.args.get('query', '').encode('utf-8').decode('utf-8').strip()
+        print("Query Received:", query)
+
+        if not query:
+            return jsonify({'error': 'يرجى إدخال كلمة مفتاحية'}), 400
+
         pytrends.build_payload([query], cat=0, timeframe='now 7-d', geo='', gprop='')
         related_queries = pytrends.related_queries()[query]['top']
 
-        if related_queries is None:
-            return jsonify({'message': 'لا توجد بيانات كافية لهذه الكلمة الآن.'})
+        if related_queries is None or related_queries.empty:
+            return jsonify({'keywords': [], 'message': 'لا توجد نتائج لهذه الكلمة حالياً.'})
 
         keywords = related_queries['query'].tolist()
         return jsonify({'keywords': keywords})
+
     except Exception as e:
+        print("Error:", e)
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=10000)
