@@ -20,17 +20,26 @@ def get_trends():
         if not query:
             return jsonify({'error': 'يرجى إدخال كلمة مفتاحية'}), 400
 
+        print("Step 1: Building payload for", query)
         pytrends.build_payload([query], cat=0, timeframe='now 7-d', geo='', gprop='')
-        related_queries = pytrends.related_queries()[query]['top']
 
-        if related_queries is None or related_queries.empty:
-            return jsonify({'keywords': [], 'message': 'لا توجد نتائج لهذه الكلمة حالياً.'})
+        print("Step 2: Getting related queries")
+        related = pytrends.related_queries()
+        print("Step 3: Raw related data:", related)
 
+        # تحقق من أن البيانات موجودة وسليمة
+        if not related or query not in related or related[query]['top'] is None:
+            return jsonify({'keywords': [], 'message': 'لا توجد نتائج حالياً.'})
+
+        related_queries = related[query]['top']
+        print("Step 4: Extracted top:", related_queries)
+
+        # تحويل الكلمات المفتاحية إلى قائمة
         keywords = related_queries['query'].tolist()
         return jsonify({'keywords': keywords})
 
     except Exception as e:
-        print("Error:", e)
+        print("Error occurred:", str(e))
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
